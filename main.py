@@ -51,6 +51,9 @@ def main() -> int:
     NUM_REGIONES_JUGADOR = 2  # cuantas cartas detectadas (de izq. a der.) son del jugador
     INTERVALO_REFRESCO_MS = int(1000 / FPS_CAPTURA)
     REGLAS_MESA = ReglasMesa(num_mazos=6, permite_rendirse=False)
+    # Umbral de confianza: con el mazo de Byron Knoll, 7/8 y 9/10 tienen margen ~0.10
+    # entre si. Si hay confusiones frecuentes en capturas reales, ajusta este valor.
+    UMBRAL_CONFIANZA = 0.8
 
     # ------------------------------------------------------------------
     # QApplication debe existir antes de crear cualquier ventana de Qt,
@@ -83,7 +86,7 @@ def main() -> int:
 
     capturador = CapturadorPantalla(region=region, fps=FPS_CAPTURA)
     procesador = ProcesadorImagen()
-    reconocedor = ReconocedorCartas(banco=banco_plantillas, umbral_confianza=0.8)
+    reconocedor = ReconocedorCartas(banco=banco_plantillas, umbral_confianza=UMBRAL_CONFIANZA)
     partida = Partida(reglas=REGLAS_MESA)
 
     bucle = BucleAplicacion(
@@ -97,7 +100,10 @@ def main() -> int:
     # ------------------------------------------------------------------
     # PASO 3: overlay + bucle continuo (QTimer no bloquea la ventana).
     # ------------------------------------------------------------------
-    ventana = VentanaOverlay()
+    ventana = VentanaOverlay(
+        on_nueva_mano=bucle.nueva_mano,
+        on_nuevo_zapato=bucle.nuevo_zapato,
+    )
 
     def ciclo() -> None:
         """Se ejecuta periodicamente: procesa un frame y refresca el overlay."""
@@ -112,12 +118,10 @@ def main() -> int:
     ventana.show()
 
     try:
-        codigo_salida = app.exec()
+        return app.exec()
     finally:
-        temporizador.stop()
         capturador.cerrar()
 
-    return codigo_salida
 
 if __name__ == "__main__":
     sys.exit(main())

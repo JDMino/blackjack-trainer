@@ -7,7 +7,8 @@ QApplication disponible. Corre con QT_QPA_PLATFORM=offscreen
 pantalla real.
 """
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QMouseEvent
 
 from app.overlay.estado import EstadoOverlay
 from app.overlay.ventana import VentanaOverlay
@@ -62,5 +63,69 @@ class TestActualizar:
         for accion in Accion:
             ventana.actualizar(EstadoOverlay(recomendacion=accion))
             colores_vistos.add(ventana._valor_recomendacion.styleSheet())
-        # 5 acciones distintas deberian producir 5 estilos (colores) distintos
         assert len(colores_vistos) == len(list(Accion))
+
+
+class TestBotonesDeControl:
+    def test_click_nueva_mano_dispara_callback(self, qapp):
+        llamadas = []
+        ventana = VentanaOverlay(on_nueva_mano=lambda: llamadas.append("nueva_mano"))
+        ventana._btn_nueva_mano.click()
+        assert llamadas == ["nueva_mano"]
+
+    def test_click_nuevo_zapato_dispara_callback(self, qapp):
+        llamadas = []
+        ventana = VentanaOverlay(on_nuevo_zapato=lambda: llamadas.append("nuevo_zapato"))
+        ventana._btn_nuevo_zapato.click()
+        assert llamadas == ["nuevo_zapato"]
+
+    def test_sin_callbacks_los_botones_no_lanzan_error(self, qapp):
+        # Si no se pasan callbacks, los botones no deben romper nada
+        ventana = VentanaOverlay()
+        ventana._btn_nueva_mano.click()
+        ventana._btn_nuevo_zapato.click()
+
+    def test_nueva_mano_no_dispara_nuevo_zapato(self, qapp):
+        llamadas = []
+        ventana = VentanaOverlay(
+            on_nueva_mano=lambda: llamadas.append("mano"),
+            on_nuevo_zapato=lambda: llamadas.append("zapato"),
+        )
+        ventana._btn_nueva_mano.click()
+        assert llamadas == ["mano"]  # solo uno, no los dos
+
+
+class TestArrastre:
+    def test_press_registra_posicion_de_arrastre(self, qapp):
+        ventana = VentanaOverlay()
+        ventana.show()
+        evento = QMouseEvent(
+            QMouseEvent.Type.MouseButtonPress,
+            QPointF(QPoint(50, 50)),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        ventana.mousePressEvent(evento)
+        assert ventana._drag_pos is not None
+
+    def test_release_limpia_posicion_de_arrastre(self, qapp):
+        ventana = VentanaOverlay()
+        ventana.show()
+        press = QMouseEvent(
+            QMouseEvent.Type.MouseButtonPress,
+            QPointF(QPoint(50, 50)),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        release = QMouseEvent(
+            QMouseEvent.Type.MouseButtonRelease,
+            QPointF(QPoint(50, 50)),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        ventana.mousePressEvent(press)
+        ventana.mouseReleaseEvent(release)
+        assert ventana._drag_pos is None
